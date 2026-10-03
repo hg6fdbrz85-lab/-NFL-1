@@ -4,7 +4,7 @@ import pandas as pd
 st.set_page_config(page_title="NFL Receiving Props Master Edge", layout="wide")
 
 st.title("📈 NFL Receiving Yards & Receptions Edge Finder")
-st.caption("Dedicated Workspace: Expanded Slate, Target Shares, Route Participation & Line Discrepancies")
+st.caption("Dedicated Workspace: Active Slate, Target Shares, Route Participation & Line Discrepancies")
 
 # -------------------------------------------------------------
 # 1. HELPER FUNCTIONS
@@ -19,7 +19,7 @@ def calc_implied_team_total(game_total, spread, is_favorite=True):
         return 0.0
 
 # -------------------------------------------------------------
-# 2. EXPANDED RECEIVING MASTER SLATE
+# 2. CLEANED & VERIFIED RECEIVING MASTER SLATE
 # -------------------------------------------------------------
 @st.cache_data(ttl=3600)
 def load_receiving_board():
@@ -53,12 +53,6 @@ def load_receiving_board():
             "Game Total": 46.5, "Spread": "+2.5", "Is Fav": False, "QB EPA Factor": +0.5,
             "Target Share %": "31.0%", "Route %": "88%", "Expected Receptions": 6.5, "Model Rec Yards": 76.0,
             "DraftKings Line": "69.5", "FanDuel Line": "73.5", "DK Odds": "-110", "FD Odds": "-110"
-        },
-        {
-            "Player": "A.J. Brown", "Team": "PHI", "Pos": "WR", "Opponent": "vs LAR", "Status": "🟢 Active",
-            "Game Total": 46.5, "Spread": "-2.5", "Is Fav": True, "QB EPA Factor": +1.8,
-            "Target Share %": "29.5%", "Route %": "91%", "Expected Receptions": 6.4, "Model Rec Yards": 82.0,
-            "DraftKings Line": "72.5", "FanDuel Line": "76.5", "DK Odds": "-115", "FD Odds": "-110"
         },
         {
             "Player": "Brock Bowers", "Team": "LV", "Pos": "TE", "Opponent": "vs KC", "Status": "🟢 Active",
@@ -156,7 +150,7 @@ c3.metric("Workspace Type", "Receiving Yards Only")
 c4.metric("Status", "🟢 Operational")
 
 # Main Board Display
-st.subheader("Expanded Receiving Yards & Receptions Worksheet")
+st.subheader("Cleaned Receiving Yards & Receptions Worksheet")
 display_cols = [
     "Player", "Team", "Pos", "DraftKings Line", "FanDuel Line", 
     "Model Rec Yards", "Yards Edge Display", "Value Signal", "Outlier Status",
