@@ -4,7 +4,7 @@ import pandas as pd
 st.set_page_config(page_title="NFL Receiving Props Master Edge", layout="wide")
 
 st.title("📈 NFL Receiving Yards & Receptions Edge Finder")
-st.caption("Dedicated Workspace: Target Shares, Route Participation, Line Discrepancy & Yards Over/Under Model")
+st.caption("Dedicated Workspace: Expanded Slate, Target Shares, Route Participation & Line Discrepancies")
 
 # -------------------------------------------------------------
 # 1. HELPER FUNCTIONS
@@ -19,7 +19,7 @@ def calc_implied_team_total(game_total, spread, is_favorite=True):
         return 0.0
 
 # -------------------------------------------------------------
-# 2. DEDICATED RECEIVING MASTER SLATE
+# 2. EXPANDED RECEIVING MASTER SLATE
 # -------------------------------------------------------------
 @st.cache_data(ttl=3600)
 def load_receiving_board():
@@ -37,16 +37,40 @@ def load_receiving_board():
             "DraftKings Line": "82.5", "FanDuel Line": "80.5", "DK Odds": "-110", "FD Odds": "-115"
         },
         {
+            "Player": "Nico Collins", "Team": "HOU", "Pos": "WR", "Opponent": "vs DAL", "Status": "🟢 Active",
+            "Game Total": 47.0, "Spread": "+1.5", "Is Fav": False, "QB EPA Factor": +1.5,
+            "Target Share %": "30.0%", "Route %": "90%", "Expected Receptions": 6.8, "Model Rec Yards": 84.0,
+            "DraftKings Line": "76.5", "FanDuel Line": "75.5", "DK Odds": "-110", "FD Odds": "-110"
+        },
+        {
+            "Player": "Dalton Schultz", "Team": "HOU", "Pos": "TE", "Opponent": "vs DAL", "Status": "🟢 Active",
+            "Game Total": 47.0, "Spread": "+1.5", "Is Fav": False, "QB EPA Factor": +1.0,
+            "Target Share %": "21.0%", "Route %": "79%", "Expected Receptions": 5.2, "Model Rec Yards": 49.5,
+            "DraftKings Line": "40.5", "FanDuel Line": "43.5", "DK Odds": "-113", "FD Odds": "-110"
+        },
+        {
             "Player": "Puka Nacua", "Team": "LAR", "Pos": "WR", "Opponent": "@ PHI", "Status": "🟡 Questionable",
             "Game Total": 46.5, "Spread": "+2.5", "Is Fav": False, "QB EPA Factor": +0.5,
             "Target Share %": "31.0%", "Route %": "88%", "Expected Receptions": 6.5, "Model Rec Yards": 76.0,
             "DraftKings Line": "69.5", "FanDuel Line": "73.5", "DK Odds": "-110", "FD Odds": "-110"
         },
         {
+            "Player": "A.J. Brown", "Team": "PHI", "Pos": "WR", "Opponent": "vs LAR", "Status": "🟢 Active",
+            "Game Total": 46.5, "Spread": "-2.5", "Is Fav": True, "QB EPA Factor": +1.8,
+            "Target Share %": "29.5%", "Route %": "91%", "Expected Receptions": 6.4, "Model Rec Yards": 82.0,
+            "DraftKings Line": "72.5", "FanDuel Line": "76.5", "DK Odds": "-115", "FD Odds": "-110"
+        },
+        {
             "Player": "Brock Bowers", "Team": "LV", "Pos": "TE", "Opponent": "vs KC", "Status": "🟢 Active",
             "Game Total": 43.5, "Spread": "+3.5", "Is Fav": False, "QB EPA Factor": -1.0,
             "Target Share %": "27.5%", "Route %": "81%", "Expected Receptions": 5.8, "Model Rec Yards": 61.5,
             "DraftKings Line": "52.5", "FanDuel Line": "56.5", "DK Odds": "-115", "FD Odds": "-110"
+        },
+        {
+            "Player": "Rashee Rice", "Team": "KC", "Pos": "WR", "Opponent": "@ LV", "Status": "🟢 Active",
+            "Game Total": 43.5, "Spread": "-3.5", "Is Fav": True, "QB EPA Factor": +2.2,
+            "Target Share %": "28.5%", "Route %": "86%", "Expected Receptions": 6.2, "Model Rec Yards": 64.0,
+            "DraftKings Line": "54.5", "FanDuel Line": "57.5", "DK Odds": "-114", "FD Odds": "-110"
         },
         {
             "Player": "Khalil Shakir", "Team": "BUF", "Pos": "WR", "Opponent": "vs NE", "Status": "🟢 Active",
@@ -59,6 +83,18 @@ def load_receiving_board():
             "Game Total": 45.0, "Spread": "+7.0", "Is Fav": False, "QB EPA Factor": -1.2,
             "Target Share %": "28.0%", "Route %": "82%", "Expected Receptions": 5.5, "Model Rec Yards": 58.0,
             "DraftKings Line": "55.5", "FanDuel Line": "49.5", "DK Odds": "-110", "FD Odds": "-110"
+        },
+        {
+            "Player": "George Kittle", "Team": "SF", "Pos": "TE", "Opponent": "vs ARI", "Status": "🟢 Active",
+            "Game Total": 44.0, "Spread": "-6.5", "Is Fav": True, "QB EPA Factor": +1.5,
+            "Target Share %": "22.5%", "Route %": "84%", "Expected Receptions": 5.0, "Model Rec Yards": 68.0,
+            "DraftKings Line": "64.5", "FanDuel Line": "61.5", "DK Odds": "-113", "FD Odds": "-110"
+        },
+        {
+            "Player": "Jauan Jennings", "Team": "SF", "Pos": "WR", "Opponent": "vs ARI", "Status": "🟢 Active",
+            "Game Total": 44.0, "Spread": "-6.5", "Is Fav": True, "QB EPA Factor": +1.5,
+            "Target Share %": "18.5%", "Route %": "80%", "Expected Receptions": 3.8, "Model Rec Yards": 45.0,
+            "DraftKings Line": "38.5", "FanDuel Line": "41.5", "DK Odds": "+100", "FD Odds": "-110"
         }
     ]
     return pd.DataFrame(data)
@@ -120,7 +156,7 @@ c3.metric("Workspace Type", "Receiving Yards Only")
 c4.metric("Status", "🟢 Operational")
 
 # Main Board Display
-st.subheader("Receiving Yards & Receptions Worksheet")
+st.subheader("Expanded Receiving Yards & Receptions Worksheet")
 display_cols = [
     "Player", "Team", "Pos", "DraftKings Line", "FanDuel Line", 
     "Model Rec Yards", "Yards Edge Display", "Value Signal", "Outlier Status",
