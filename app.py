@@ -30,7 +30,6 @@ def calc_fair_odds_and_vig(dk_odds, fd_odds):
     p_fd = odds_to_implied(fd_odds)
     if p_dk == 0 or p_fd == 0:
         return max(p_dk, p_fd)
-    # Average the unvigged probabilities roughly
     avg_implied = (p_dk + p_fd) / 2.0
     return round(avg_implied, 1)
 
@@ -77,14 +76,14 @@ def get_stadium_weather(team):
         if wind >= 18:
             return f"💨 {wind}mph Wind ({temp}°F)"
         elif temp <= 32:
-            return f"❄️️ {temp}°F Cold ({wind}mph)"
+            return f"❄️ {temp}°F Cold ({wind}mph)"
         else:
             return f"☀️ {temp}°F / {wind}mph"
     except Exception:
         return "Outdoor (Live)"
 
 # -------------------------------------------------------------
-# 3. MASTER SLATE DATASET (With Sharp Metrics & Simulation Inputs)
+# 3. MASTER SLATE DATASET
 # -------------------------------------------------------------
 @st.cache_data(ttl=3600)
 def load_nfl_board():
@@ -167,22 +166,19 @@ df = load_nfl_board()
 # Live Weather Integration
 df["Live Weather"] = df["Team"].apply(get_stadium_weather)
 
-# Implied Team Totals & Calculations
+# Calculations
 df["Implied Score"] = df.apply(lambda r: calc_implied_team_total(r["Game Total"], r["Spread"], r["Is Fav"]), axis=1)
 df["DK Implied %"] = df["DraftKings"].apply(odds_to_implied)
 df["FD Implied %"] = df["FanDuel"].apply(odds_to_implied)
-
-# Best Market Implied Line
 df["Best Implied %"] = df[["DK Implied %", "FD Implied %"]].min(axis=1)
 
-# Fair Odds / No-Vig Baseline Probability
 df["Fair Odds %"] = df.apply(lambda r: calc_fair_odds_and_vig(r["DraftKings"], r["FanDuel"]), axis=1)
 
-# RAW NUMERIC EV EDGE (Based on Monte Carlo Sim Prob vs Best Implied)
+# RAW NUMERIC EV EDGE
 df["EV_Edge_Num"] = df["Sim Prob"] - df["Best Implied %"]
 df["Value Signal"] = df["EV_Edge_Num"].apply(lambda x: "🟢 YES" if x > 2.5 else ("🟡 SLIGHT" if x > 0 else "🔴 NO"))
 
-# Formatted string columns for display
+# Formatted strings for display
 df["Sim Prob %"] = df["Sim Prob"].apply(lambda x: f"{x:.1f}%")
 df["Fair Odds % Col"] = df["Fair Odds %"].apply(lambda x: f"{x:.1f}%")
 df["EV Edge %"] = df["EV_Edge_Num"].apply(lambda x: f"{'+' if x > 0 else ''}{x:.1f}%")
@@ -192,14 +188,11 @@ df["EV Edge %"] = df["EV_Edge_Num"].apply(lambda x: f"{'+' if x > 0 else ''}{x:.
 # -------------------------------------------------------------
 st.sidebar.header("Filter & Controls")
 
-# Interactive Scratchpad (Breece Hall pre-loaded or easily checked)
 scratched_players = st.sidebar.multiselect("🚫 Scratch/Remove Players", options=df["Player"].unique(), default=["Breece Hall"])
-
 pos_filter = st.sidebar.multiselect("Position", ["ALL", "RB", "WR", "TE", "QB"], default="ALL")
 weather_alert_only = st.sidebar.checkbox("Show Weather Impact Games Only", value=False)
 value_only = st.sidebar.checkbox("Show Only Positive Value (+EV)", value=False)
 
-# Scratch filter applied first
 filtered_df = df[~df["Player"].isin(scratched_players)].copy()
 
 if "ALL" not in pos_filter and len(pos_filter) > 0:
@@ -211,7 +204,6 @@ if weather_alert_only:
 if value_only:
     filtered_df = filtered_df[filtered_df["Value Signal"].isin(["🟢 YES", "🟡 SLIGHT"])]
 
-# Pull Top Edge from the raw numeric column (EV_Edge_Num)
 top_edge_val = filtered_df["EV_Edge_Num"].max() if not filtered_df.empty else 0.0
 
 # Metrics Header
@@ -221,12 +213,13 @@ c2.metric("Top Edge", f"+{top_edge_val:.1f}%" if top_edge_val > 0 else f"{top_ed
 c3.metric("Weather Feed", "🟢 Active")
 c4.metric("Injury Scratchpad", f"{len(scratched_players)} Scratched" if scratched_players else "🟢 Clean Board")
 
-# Main Board (Includes Fair Odds, 1st Read %, Route %, and Sim Prob %)
-st.subheader("Touchdown Prop Edge Board (Advanced Sharp Suite)")
+# Main Board (Core Betting Data Front & Center; Advanced Metrics Toward the Right)
+st.subheader("Touchdown Prop Edge Board")
 display_cols = [
     "Player", "Team", "Pos", "DraftKings", "FanDuel", 
-    "Fair Odds % Col", "Sim Prob %", "EV Edge %", "Value Signal", 
-    "1st Read %", "Route %", "Status", "Opponent", "Live Weather", 
-    "Implied Score", "Inside 5 Touches", "Def RZ Rank"
+    "Sim Prob %", "EV Edge %", "Value Signal", 
+    "Status", "Opponent", "Live Weather", "Implied Score", 
+    "Inside 5 Touches", "Def RZ Rank", 
+    "1st Read %", "Route %", "Fair Odds % Col"
 ]
 st.dataframe(filtered_df[display_cols], use_container_width=True, hide_index=True)
