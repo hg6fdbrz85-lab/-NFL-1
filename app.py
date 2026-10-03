@@ -9,7 +9,7 @@ st.caption("Live Sportsbook Odds vs. Projected Model Probabilities")
 
 # -------------------------------------------------------------
 # 1. API KEY CONFIGURATION
-# -------------------------------------------------------------
+3d68d96e284eb085ede63e647648c6e9
 # Replace 'YOUR_API_KEY_HERE' with the free key from the-odds-api.com
 API_KEY = "YOUR_API_KEY_HERE"
 
