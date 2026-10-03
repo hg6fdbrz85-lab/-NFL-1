@@ -5,7 +5,7 @@ import requests
 st.set_page_config(page_title="NFL ATTD Master Edge Model", layout="wide")
 
 st.title("🏈 Automated NFL Anytime TD (ATTD) Edge Finder")
-st.caption("Live Sportsbook Lines, Implied Team Totals, Weather & Red-Zone Matchup Funnels")
+st.caption("Live Odds, Implied Team Totals, Weather & Red-Zone Matchup Funnels")
 
 # -------------------------------------------------------------
 # 1. API KEY & HELPER FUNCTIONS
@@ -155,11 +155,11 @@ df["FD Implied %"] = df["FanDuel"].apply(odds_to_implied)
 # Compares against the lowest implied probability between books (best payout line)
 df["Best Implied %"] = df[["DK Implied %", "FD Implied %"]].min(axis=1)
 
-# RAW NUMERIC EV EDGE (Calculated first to prevent string sorting bugs)
+# RAW NUMERIC EV EDGE
 df["EV_Edge_Num"] = df["Model Prob"] - df["Best Implied %"]
 df["Value Signal"] = df["EV_Edge_Num"].apply(lambda x: "🟢 YES" if x > 2.5 else ("🟡 SLIGHT" if x > 0 else "🔴 NO"))
 
-# Formatted string columns for the UI table
+# Formatted string columns for display
 df["Model Prob %"] = df["Model Prob"].apply(lambda x: f"{x:.1f}%")
 df["EV Edge %"] = df["EV_Edge_Num"].apply(lambda x: f"{'+' if x > 0 else ''}{x:.1f}%")
 
@@ -187,7 +187,7 @@ if weather_alert_only:
 if value_only:
     filtered_df = filtered_df[filtered_df["Value Signal"].isin(["🟢 YES", "🟡 SLIGHT"])]
 
-# Fix: Pull Top Edge from the raw numeric column (EV_Edge_Num)
+# Pull Top Edge from the raw numeric column (EV_Edge_Num)
 top_edge_val = filtered_df["EV_Edge_Num"].max() if not filtered_df.empty else 0.0
 
 # Metrics Header
@@ -197,11 +197,12 @@ c2.metric("Top Edge", f"+{top_edge_val:.1f}%" if top_edge_val > 0 else f"{top_ed
 c3.metric("Weather Feed", "🟢 Active")
 c4.metric("Injury Scratchpad", f"{len(scratched_players)} Scratched" if scratched_players else "🟢 Clean Board")
 
-# Main Board
+# Main Board (Optimized Layout: Odds & Edge First, Weather Right Next to Opponent)
 st.subheader("Touchdown Prop Edge Board")
 display_cols = [
-    "Player", "Team", "Pos", "Status", "Opponent", "Live Weather", 
-    "Implied Score", "L3 TDs", "Inside 5 Touches", "Def TDs Allowed/G", "Def RZ Rank", 
-    "DraftKings", "FanDuel", "Model Prob %", "EV Edge %", "Value Signal"
+    "Player", "Team", "Pos", "DraftKings", "FanDuel", 
+    "Model Prob %", "EV Edge %", "Value Signal", 
+    "Status", "Opponent", "Live Weather", "Implied Score", 
+    "Inside 5 Touches", "Def RZ Rank"
 ]
 st.dataframe(filtered_df[display_cols], use_container_width=True, hide_index=True)
