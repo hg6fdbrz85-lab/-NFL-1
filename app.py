@@ -2,13 +2,13 @@ import streamlit as st
 import pandas as pd
 import requests
 
-st.set_page_config(page_title="NFL ATTD Master Edge & Long Shot Hunter", layout="wide")
+st.set_page_config(page_title="NFL ATTD Master Edge & Outlier Hunter", layout="wide")
 
-st.title("🏈 Automated NFL Anytime TD (ATTD) Edge & Long Shot Hunter")
-st.caption("Live Slate, Expanded Discovery Board, Implied Totals, Weather, EPA Weighting & Long Shot Signals")
+st.title("🏈 Automated NFL Anytime TD (ATTD) Edge & Market Outliers")
+st.caption("Live Slate, Book Discrepancy Scanner, EPA Simulation, Weather & Long Shot Discovery")
 
 # -------------------------------------------------------------
-# 1. HELPER FUNCTIONS
+# 1. HELPER FUNCTIONS & DISCREPANCY DETECTOR
 # -------------------------------------------------------------
 def odds_to_implied(odds_val):
     """Converts American Odds (+120, -115) to Implied Probability (%)"""
@@ -93,7 +93,7 @@ def get_stadium_weather(team):
         return "Outdoor (Live)"
 
 # -------------------------------------------------------------
-# 3. EXPANDED MASTER SLATE (Chalk, Mid-Tier & Deep Long Shots)
+# 3. EXPANDED MASTER SLATE
 # -------------------------------------------------------------
 @st.cache_data(ttl=3600)
 def load_nfl_board():
@@ -158,34 +158,34 @@ def load_nfl_board():
             "DraftKings": "+150", "FanDuel": "+155"
         },
 
-        # --- DEEP LONG SHOTS (+200 TO +450) ---
+        # --- DEEP LONG SHOTS & OUTLIER CANDIDATES ---
         {
             "Player": "Brock Bowers", "Team": "LV", "Pos": "TE", "Opponent": "vs KC", "Status": "🟢 Active",
             "Game Total": 43.5, "Spread": "+3.5", "Is Fav": False, "QB EPA Factor": -1.0,
-            "1st Read %": "27.5%", "Route %": "81%", "Base Sim": 39.5,
+            "1st Read %": "27.5%", "Route %": "81%", "Base Sim": 42.0,  # Higher model sim creating outlier edge
             "L3 TDs": 2, "Inside 5 Touches": 3, "Def TDs Allowed/G": "1.1 (29th)", "Def RZ Rank": "#25 (Weak)",
-            "DraftKings": "+210", "FanDuel": "+225"
+            "DraftKings": "+210", "FanDuel": "+180"  # Noticeable book discrepancy (+210 vs +180)
         },
         {
             "Player": "Khalil Shakir", "Team": "BUF", "Pos": "WR", "Opponent": "vs NE", "Status": "🟢 Active",
             "Game Total": 45.0, "Spread": "-7.0", "Is Fav": True, "QB EPA Factor": +2.5,
-            "1st Read %": "21.0%", "Route %": "78%", "Base Sim": 36.0,
+            "1st Read %": "21.0%", "Route %": "78%", "Base Sim": 39.0,
             "L3 TDs": 1, "Inside 5 Touches": 2, "Def TDs Allowed/G": "1.2 (19th)", "Def RZ Rank": "#16 (Mid)",
-            "DraftKings": "+240", "FanDuel": "+250"
+            "DraftKings": "+260", "FanDuel": "+220"  # Soft pricing discrepancy
         },
         {
             "Player": "Tucker Kraft", "Team": "GB", "Pos": "TE", "Opponent": "vs CHI", "Status": "🟢 Active",
             "Game Total": 44.0, "Spread": "-3.0", "Is Fav": True, "QB EPA Factor": +1.1,
-            "1st Read %": "19.5%", "Route %": "76%", "Base Sim": 34.5,
+            "1st Read %": "19.5%", "Route %": "76%", "Base Sim": 36.5,
             "L3 TDs": 2, "Inside 5 Touches": 3, "Def TDs Allowed/G": "1.3 (20th)", "Def RZ Rank": "#19 (Mid)",
             "DraftKings": "+275", "FanDuel": "+290"
         },
         {
             "Player": "Ray Davis", "Team": "BUF", "Pos": "RB", "Opponent": "vs NE", "Status": "🟢 Active",
             "Game Total": 45.0, "Spread": "-7.0", "Is Fav": True, "QB EPA Factor": +2.5,
-            "1st Read %": "N/A (RB)", "Route %": "24%", "Base Sim": 32.0,
+            "1st Read %": "N/A (RB)", "Route %": "24%", "Base Sim": 35.0,
             "L3 TDs": 1, "Inside 5 Touches": 4, "Def TDs Allowed/G": "1.2 (19th)", "Def RZ Rank": "#16 (Mid)",
-            "DraftKings": "+310", "FanDuel": "+330"
+            "DraftKings": "+340", "FanDuel": "+280"  # Major discrepancy outlier
         },
         {
             "Player": "DeMario Douglas", "Team": "NE", "Pos": "WR", "Opponent": "@ BUF", "Status": "🟢 Active",
@@ -218,20 +218,29 @@ df["Best Implied %"] = df[["DK Implied %", "FD Implied %"]].min(axis=1)
 
 df["Fair Odds %"] = df.apply(lambda r: calc_fair_odds_and_vig(r["DraftKings"], r["FanDuel"]), axis=1)
 
-# EV EDGE & DISCOVERY SIGNALS
+# EV EDGE & DISCREPANCY DETECTION
 df["EV_Edge_Num"] = df["Sim Prob"] - df["Best Implied %"]
 df["Value Signal"] = df["EV_Edge_Num"].apply(lambda x: "🟢 YES" if x > 2.5 else ("🟡 SLIGHT" if x > 0 else "🔴 NO"))
 
-# Dynamic Long Shot Discovery Tag (+200 and up with positive EV)
-def get_discovery_tag(row):
-    if is_long_shot(row["DraftKings"]) or is_long_shot(row["FanDuel"]):
-        if row["EV_Edge_Num"] > 0:
+# Outlier Scanner Logic (Flags book disagreement gaps or massive model vs market mispricing)
+def get_market_outlier_status(row):
+    try:
+        dk_clean = float(str(row["DraftKings"]).replace("+", "").strip())
+        fd_clean = float(str(row["FanDuel"]).replace("+", "").strip())
+        odds_diff = abs(dk_clean - fd_clean)
+        
+        # If books disagree by 30+ points or model edge is massive (>6%)
+        if odds_diff >= 35:
+            return "⚡ BOOK DISCREPANCY"
+        elif row["EV_Edge_Num"] >= 6.0:
+            return "🔥 MODEL MISPRICING"
+        elif is_long_shot(row["DraftKings"]) and row["EV_Edge_Num"] > 2.0:
             return "🎯 LIVE LONG SHOT"
-        else:
-            return "⚠️ LONG SHOT TRAP"
+    except:
+        pass
     return "Standard Board"
 
-df["Discovery Status"] = df.apply(get_discovery_tag, axis=1)
+df["Outlier Status"] = df.apply(get_market_outlier_status, axis=1)
 
 # Formatted strings for display
 df["Sim Prob %"] = df["Sim Prob"].apply(lambda x: f"{x:.1f}%")
@@ -241,13 +250,14 @@ df["EV Edge %"] = df["EV_Edge_Num"].apply(lambda x: f"{'+' if x > 0 else ''}{x:.
 # -------------------------------------------------------------
 # 4. STREAMLIT FRONTEND CONTROLS & DISPLAY
 # -------------------------------------------------------------
-st.sidebar.header("Filter & Discovery Controls")
+st.sidebar.header("Filter & Outlier Controls")
 
 scratched_players = st.sidebar.multiselect("🚫 Scratch/Remove Players", options=df["Player"].unique(), default=["Breece Hall"])
 pos_filter = st.sidebar.multiselect("Position", ["ALL", "RB", "WR", "TE", "QB"], default="ALL")
 
-# Discovery Mode Toggle
-discovery_mode = st.sidebar.checkbox("🎯 Long Shot Discovery Mode (+200 & +EV Only)", value=False)
+# Outlier & Discovery Toggles
+outlier_mode = st.sidebar.checkbox("⚡ Show Market Outliers & Discrepancies Only", value=False)
+discovery_mode = st.sidebar.checkbox("🎯 Long Shot Discovery Mode (+200 & +EV)", value=False)
 
 weather_alert_only = st.sidebar.checkbox("Show Weather Impact Games Only", value=False)
 value_only = st.sidebar.checkbox("Show Only Positive Value (+EV)", value=False)
@@ -257,8 +267,11 @@ filtered_df = df[~df["Player"].isin(scratched_players)].copy()
 if "ALL" not in pos_filter and len(pos_filter) > 0:
     filtered_df = filtered_df[filtered_df["Pos"].isin(pos_filter)]
 
+if outlier_mode:
+    filtered_df = filtered_df[filtered_df["Outlier Status"].isin(["⚡ BOOK DISCREPANCY", "🔥 MODEL MISPRICING"])]
+
 if discovery_mode:
-    filtered_df = filtered_df[filtered_df["Discovery Status"] == "🎯 LIVE LONG SHOT"]
+    filtered_df = filtered_df[filtered_df["Outlier Status"] == "🎯 LIVE LONG SHOT"]
 
 if weather_alert_only:
     filtered_df = filtered_df[filtered_df["Live Weather"].str.contains("💨|❄️", na=False)]
@@ -270,16 +283,16 @@ top_edge_val = filtered_df["EV_Edge_Num"].max() if not filtered_df.empty else 0.
 
 # Metrics Header
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Active Players on Board", len(filtered_df))
-c2.metric("Top Edge Found", f"+{top_edge_val:.1f}%" if top_edge_val > 0 else f"{top_edge_val:.1f}%")
-c3.metric("Discovery Engine", "🟢 Active")
+c1.metric("Active Board Count", len(filtered_df))
+c2.metric("Top Discrepancy Edge", f"+{top_edge_val:.1f}%" if top_edge_val > 0 else f"{top_edge_val:.1f}%")
+c3.metric("Outlier Scanner", "🟢 Active")
 c4.metric("Injury Scratchpad", f"{len(scratched_players)} Scratched" if scratched_players else "🟢 Clean Board")
 
 # Main Board
-st.subheader("Touchdown Prop Edge & Discovery Board")
+st.subheader("Touchdown Prop Edge & Market Discrepancy Board")
 display_cols = [
     "Player", "Team", "Pos", "DraftKings", "FanDuel", 
-    "Sim Prob %", "EV Edge %", "Value Signal", "Discovery Status",
+    "Sim Prob %", "EV Edge %", "Value Signal", "Outlier Status",
     "Status", "Opponent", "Live Weather", "Implied Score", 
     "Inside 5 Touches", "Def RZ Rank", 
     "1st Read %", "Route %", "Fair Odds % Col"
