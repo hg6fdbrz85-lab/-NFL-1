@@ -2,10 +2,10 @@ import streamlit as st
 import pandas as pd
 import requests
 
-st.set_page_config(page_title="NFL 1st TD Master Edge & Long Shot Hunter", layout="wide")
+st.set_page_config(page_title="NFL ATTD Master Edge & Outlier Hunter", layout="wide")
 
-st.title("🏈 Automated NFL First Touchdown (1st TD) & Opening Script Engine")
-st.caption("First TD Board, Opening Drive Script Analytics, Book Discrepancies & Long Shot Lottery Scanner")
+st.title("🏈 Automated NFL Anytime TD (ATTD) & Market Outliers")
+st.caption("Live Slate, Book Discrepancy Scanner, EPA Simulation, Weather & First TD / Long Shot Tracking")
 
 # -------------------------------------------------------------
 # 1. HELPER FUNCTIONS & DISCREPANCY DETECTOR
@@ -24,13 +24,32 @@ def odds_to_implied(odds_val):
     except:
         return 0.0
 
+def calc_fair_odds_and_vig(dk_odds, fd_odds):
+    """Calculates no-vig 'Fair Odds' probability baseline between books"""
+    p_dk = odds_to_implied(dk_odds)
+    p_fd = odds_to_implied(fd_odds)
+    if p_dk == 0 or p_fd == 0:
+        return max(p_dk, p_fd)
+    avg_implied = (p_dk + p_fd) / 2.0
+    return round(avg_implied, 1)
+
 def is_long_shot(odds_val):
-    """Checks if American odds meet or exceed +800 threshold for 1st TD"""
+    """Checks if American odds meet or exceed +200 threshold"""
     try:
         clean = str(odds_val).replace('+', '').strip()
         if clean == 'N/A' or clean == '':
             return False
-        return float(clean) >= 800.0
+        return float(clean) >= 200.0
+    except:
+        return False
+
+def is_first_td_long_shot(odds_val):
+    """Checks if 1st TD odds meet or exceed +1000 threshold"""
+    try:
+        clean = str(odds_val).replace('+', '').strip()
+        if clean == 'N/A' or clean == '':
+            return False
+        return float(clean) >= 1000.0
     except:
         return False
 
@@ -63,6 +82,7 @@ STADIUM_COORDS = {
 
 @st.cache_data(ttl=1800)
 def get_stadium_weather(team):
+    """Pulls live real-time weather metrics for outdoor stadiums."""
     if team not in STADIUM_COORDS:
         return "Dome 🏟️"
     loc = STADIUM_COORDS[team]
@@ -77,182 +97,208 @@ def get_stadium_weather(team):
         elif temp <= 32:
             return f"❄️ {temp}°F Cold ({wind}mph)"
         else:
-            return f"☀️️ {temp}°F / {wind}mph"
+            return f"☀️ {temp}°F / {wind}mph"
     except Exception:
         return "Outdoor (Live)"
 
 # -------------------------------------------------------------
-# 3. EXPANDED 1ST TD MASTER SLATE
+# 3. EXPANDED MASTER SLATE (With 1st TD Markets Integrated)
 # -------------------------------------------------------------
 @st.cache_data(ttl=3600)
-def load_nfl_1std_board():
+def load_nfl_board():
     data = [
-        # --- CHALK 1ST TD PLAYS ---
+        # --- CHALK & CORE PLAYS ---
         {
             "Player": "Derrick Henry", "Team": "BAL", "Pos": "RB", "Opponent": "vs TEN", "Status": "🟢 Active",
-            "Game Total": 47.5, "Spread": "-6.5", "Is Fav": True, "Opening Script Target Rate": "28% (High Rush Script)",
-            "1st Drive RedZone %": "42%", "Base 1st TD Sim %": 18.5,
-            "DraftKings": "+450", "FanDuel": "+475"
+            "Game Total": 47.5, "Spread": "-6.5", "Is Fav": True, "QB EPA Factor": +1.5,
+            "1st Read %": "N/A (RB)", "Route %": "32%", "Base Sim": 54.7,
+            "L3 TDs": 4, "Inside 5 Touches": 6, "Def TDs Allowed/G": "1.8 (31st)", "Def RZ Rank": "#30 (Poor)",
+            "DraftKings": "+110", "FanDuel": "+115", "1st TD (DK)": "+450", "1st TD (FD)": "+475"
         },
         {
             "Player": "Ja'Marr Chase", "Team": "CIN", "Pos": "WR", "Opponent": "vs JAX", "Status": "🟢 Active",
-            "Game Total": 48.0, "Spread": "-3.0", "Is Fav": True, "Opening Script Target Rate": "38% (Primary Script)",
-            "1st Drive RedZone %": "35%", "Base 1st TD Sim %": 16.0,
-            "DraftKings": "+550", "FanDuel": "+525"
+            "Game Total": 48.0, "Spread": "-3.0", "Is Fav": True, "QB EPA Factor": +2.0,
+            "1st Read %": "34.5%", "Route %": "92%", "Base Sim": 59.0,
+            "L3 TDs": 3, "Inside 5 Touches": 2, "Def TDs Allowed/G": "2.1 (32nd)", "Def RZ Rank": "#32 (Worst)",
+            "DraftKings": "-115", "FanDuel": "-110", "1st TD (DK)": "+550", "1st TD (FD)": "+525"
         },
         {
             "Player": "CeeDee Lamb", "Team": "DAL", "Pos": "WR", "Opponent": "@ HOU", "Status": "🟢 Active",
-            "Game Total": 47.0, "Spread": "-1.5", "Is Fav": True, "Opening Script Target Rate": "40% (Alpha Focus)",
-            "1st Drive RedZone %": "30%", "Base 1st TD Sim %": 15.2,
-            "DraftKings": "+600", "FanDuel": "+575"
+            "Game Total": 47.0, "Spread": "-1.5", "Is Fav": True, "QB EPA Factor": +1.2,
+            "1st Read %": "36.2%", "Route %": "94%", "Base Sim": 51.8,
+            "L3 TDs": 2, "Inside 5 Touches": 2, "Def TDs Allowed/G": "1.6 (29th)", "Def RZ Rank": "#31 (Poor)",
+            "DraftKings": "+105", "FanDuel": "+110", "1st TD (DK)": "+600", "1st TD (FD)": "+575"
         },
         {
             "Player": "Jahmyr Gibbs", "Team": "DET", "Pos": "RB", "Opponent": "@ CAR", "Status": "🟢 Active",
-            "Game Total": 49.5, "Spread": "-3.5", "Is Fav": True, "Opening Script Target Rate": "24% (Explosive)",
-            "1st Drive RedZone %": "38%", "Base 1st TD Sim %": 14.8,
-            "DraftKings": "+650", "FanDuel": "+700"
+            "Game Total": 49.5, "Spread": "-3.5", "Is Fav": True, "QB EPA Factor": +2.2,
+            "1st Read %": "18.2%", "Route %": "64%", "Base Sim": 47.8,
+            "L3 TDs": 3, "Inside 5 Touches": 4, "Def TDs Allowed/G": "1.5 (28th)", "Def RZ Rank": "#27 (Weak)",
+            "DraftKings": "+125", "FanDuel": "+130", "1st TD (DK)": "+650", "1st TD (FD)": "+700"
         },
         
-        # --- MID-TIER & SCRIPT VALUE PLAYS ---
+        # --- MID-TIER VALUE PLAYS ---
         {
             "Player": "Braelon Allen", "Team": "NYJ", "Pos": "RB", "Opponent": "@ CHI", "Status": "🚀 Lead RB (Breece Out)",
-            "Game Total": 42.0, "Spread": "+2.5", "Is Fav": False, "Opening Script Target Rate": "30% (Goal-Line Focus)",
-            "1st Drive RedZone %": "45%", "Base 1st TD Sim %": 12.5,
-            "DraftKings": "+800", "FanDuel": "+850"
+            "Game Total": 42.0, "Spread": "+2.5", "Is Fav": False, "QB EPA Factor": -0.8,
+            "1st Read %": "N/A (RB)", "Route %": "38%", "Base Sim": 44.0,
+            "L3 TDs": 2, "Inside 5 Touches": 5, "Def TDs Allowed/G": "1.4 (21st)", "Def RZ Rank": "#20 (Mid)",
+            "DraftKings": "+135", "FanDuel": "+145", "1st TD (DK)": "+800", "1st TD (FD)": "+850"
         },
         {
             "Player": "Jalen Hurts", "Team": "PHI", "Pos": "QB", "Opponent": "vs LAR", "Status": "🟢 Active",
-            "Game Total": 46.5, "Spread": "-2.5", "Is Fav": True, "Opening Script Target Rate": "Tush Push Core",
-            "1st Drive RedZone %": "50%", "Base 1st TD Sim %": 13.0,
-            "DraftKings": "+750", "FanDuel": "+725"
+            "Game Total": 46.5, "Spread": "-2.5", "Is Fav": True, "QB EPA Factor": +1.8,
+            "1st Read %": "N/A (QB)", "Route %": "N/A", "Base Sim": 43.2,
+            "L3 TDs": 4, "Inside 5 Touches": 7, "Def TDs Allowed/G": "1.1 (25th)", "Def RZ Rank": "#28 (Weak)",
+            "DraftKings": "+165", "FanDuel": "+160", "1st TD (DK)": "+750", "1st TD (FD)": "+725"
         },
         {
             "Player": "Josh Allen", "Team": "BUF", "Pos": "QB", "Opponent": "vs NE", "Status": "🟢 Active",
-            "Game Total": 45.0, "Spread": "-7.0", "Is Fav": True, "Opening Script Target Rate": "Design Rush Focus",
-            "1st Drive RedZone %": "40%", "Base 1st TD Sim %": 12.0,
-            "DraftKings": "+800", "FanDuel": "+750"
+            "Game Total": 45.0, "Spread": "-7.0", "Is Fav": True, "QB EPA Factor": +2.5,
+            "1st Read %": "N/A (QB)", "Route %": "N/A", "Base Sim": 42.5,
+            "L3 TDs": 3, "Inside 5 Touches": 5, "Def TDs Allowed/G": "0.8 (18th)", "Def RZ Rank": "#15 (Mid)",
+            "DraftKings": "+140", "FanDuel": "+150", "1st TD (DK)": "+800", "1st TD (FD)": "+750"
         },
 
-        # --- HIGH-ODDS / LONG SHOT LOTTERY TICKETS (+1000 OR MORE) ---
+        # --- DEEP LONG SHOTS & 1ST TD / ATTD OUTLIERS ---
         {
             "Player": "Brock Bowers", "Team": "LV", "Pos": "TE", "Opponent": "vs KC", "Status": "🟢 Active",
-            "Game Total": 43.5, "Spread": "+3.5", "Is Fav": False, "Opening Script Target Rate": "32% (Script Safety)",
-            "1st Drive RedZone %": "25%", "Base 1st TD Sim %": 8.5,
-            "DraftKings": "+1100", "FanDuel": "+1000"
+            "Game Total": 43.5, "Spread": "+3.5", "Is Fav": False, "QB EPA Factor": -1.0,
+            "1st Read %": "27.5%", "Route %": "81%", "Base Sim": 42.0,
+            "L3 TDs": 2, "Inside 5 Touches": 3, "Def TDs Allowed/G": "1.1 (29th)", "Def RZ Rank": "#25 (Weak)",
+            "DraftKings": "+210", "FanDuel": "+180", "1st TD (DK)": "+1100", "1st TD (FD)": "+1000"
         },
         {
             "Player": "Khalil Shakir", "Team": "BUF", "Pos": "WR", "Opponent": "vs NE", "Status": "🟢 Active",
-            "Game Total": 45.0, "Spread": "-7.0", "Is Fav": True, "Opening Script Target Rate": "22% (Slot Leak)",
-            "1st Drive RedZone %": "18%", "Base 1st TD Sim %": 6.8,
-            "DraftKings": "+1400", "FanDuel": "+1250"
+            "Game Total": 45.0, "Spread": "-7.0", "Is Fav": True, "QB EPA Factor": +2.5,
+            "1st Read %": "21.0%", "Route %": "78%", "Base Sim": 39.0,
+            "L3 TDs": 1, "Inside 5 Touches": 2, "Def TDs Allowed/G": "1.2 (19th)", "Def RZ Rank": "#16 (Mid)",
+            "DraftKings": "+260", "FanDuel": "+220", "1st TD (DK)": "+1400", "1st TD (FD)": "+1250"
         },
         {
             "Player": "Tucker Kraft", "Team": "GB", "Pos": "TE", "Opponent": "vs CHI", "Status": "🟢 Active",
-            "Game Total": 44.0, "Spread": "-3.0", "Is Fav": True, "Opening Script Target Rate": "20% (Play-Action)",
-            "1st Drive RedZone %": "22%", "Base 1st TD Sim %": 6.0,
-            "DraftKings": "+1500", "FanDuel": "+1600"
+            "Game Total": 44.0, "Spread": "-3.0", "Is Fav": True, "QB EPA Factor": +1.1,
+            "1st Read %": "19.5%", "Route %": "76%", "Base Sim": 36.5,
+            "L3 TDs": 2, "Inside 5 Touches": 3, "Def TDs Allowed/G": "1.3 (20th)", "Def RZ Rank": "#19 (Mid)",
+            "DraftKings": "+275", "FanDuel": "+290", "1st TD (DK)": "+1500", "1st TD (FD)": "+1600"
         },
         {
             "Player": "Ray Davis", "Team": "BUF", "Pos": "RB", "Opponent": "vs NE", "Status": "🟢 Active",
-            "Game Total": 45.0, "Spread": "-7.0", "Is Fav": True, "Opening Script Target Rate": "15% (Early Change-up)",
-            "1st Drive RedZone %": "30%", "Base 1st TD Sim %": 5.5,
-            "DraftKings": "+1800", "FanDuel": "+1650"
+            "Game Total": 45.0, "Spread": "-7.0", "Is Fav": True, "QB EPA Factor": +2.5,
+            "1st Read %": "N/A (RB)", "Route %": "24%", "Base Sim": 35.0,
+            "L3 TDs": 1, "Inside 5 Touches": 4, "Def TDs Allowed/G": "1.2 (19th)", "Def RZ Rank": "#16 (Mid)",
+            "DraftKings": "+340", "FanDuel": "+280", "1st TD (DK)": "+1800", "1st TD (FD)": "+1650"
         },
         {
             "Player": "DeMario Douglas", "Team": "NE", "Pos": "WR", "Opponent": "@ BUF", "Status": "🟢 Active",
-            "Game Total": 45.0, "Spread": "+7.0", "Is Fav": False, "Opening Script Target Rate": "35% (Catch-up Script)",
-            "1st Drive RedZone %": "15%", "Base 1st TD Sim %": 4.8,
-            "DraftKings": "+2000", "FanDuel": "+2200"
+            "Game Total": 45.0, "Spread": "+7.0", "Is Fav": False, "QB EPA Factor": -1.2,
+            "1st Read %": "28.0%", "Route %": "82%", "Base Sim": 31.0,
+            "L3 TDs": 1, "Inside 5 Touches": 1, "Def TDs Allowed/G": "0.9 (12th)", "Def RZ Rank": "#10 (Tough)",
+            "DraftKings": "+350", "FanDuel": "+375", "1st TD (DK)": "+2000", "1st TD (FD)": "+2200"
         },
         {
             "Player": "Breece Hall", "Team": "NYJ", "Pos": "RB", "Opponent": "@ CHI", "Status": "🔴 OUT (Quad)",
-            "Game Total": 42.0, "Spread": "+2.5", "Is Fav": False, "Opening Script Target Rate": "0%",
-            "1st Drive RedZone %": "0%", "Base 1st TD Sim %": 0.0,
-            "DraftKings": "N/A", "FanDuel": "N/A"
+            "Game Total": 42.0, "Spread": "+2.5", "Is Fav": False, "QB EPA Factor": -0.8,
+            "1st Read %": "N/A", "Route %": "0%", "Base Sim": 0.0,
+            "L3 TDs": 1, "Inside 5 Touches": 0, "Def TDs Allowed/G": "1.4 (21st)", "Def RZ Rank": "#20 (Mid)",
+            "DraftKings": "N/A", "FanDuel": "N/A", "1st TD (DK)": "N/A", "1st TD (FD)": "N/A"
         }
     ]
     return pd.DataFrame(data)
 
-df = load_nfl_1std_board()
+df = load_nfl_board()
 
 # Live Weather Integration
 df["Live Weather"] = df["Team"].apply(get_stadium_weather)
 
 # Calculations
+df["Sim Prob"] = df["Base Sim"] + df["QB EPA Factor"]
 df["Implied Score"] = df.apply(lambda r: calc_implied_team_total(r["Game Total"], r["Spread"], r["Is Fav"]), axis=1)
 df["DK Implied %"] = df["DraftKings"].apply(odds_to_implied)
 df["FD Implied %"] = df["FanDuel"].apply(odds_to_implied)
 df["Best Implied %"] = df[["DK Implied %", "FD Implied %"]].min(axis=1)
 
-# 1st TD Edge Calculation (Model Sim % vs Market Implied %)
-df["EV_Edge_Num"] = df["Base 1st TD Sim %"] - df["Best Implied %"]
-df["Value Signal"] = df["EV_Edge_Num"].apply(lambda x: "🟢 GREAT VALUE" if x > 2.0 else ("🟡 SLIGHT EDGE" if x > 0 else "🔴 NO EDGE"))
+df["Fair Odds %"] = df.apply(lambda r: calc_fair_odds_and_vig(r["DraftKings"], r["FanDuel"]), axis=1)
 
-# Outlier & Lottery Scanner Tagging
-def get_1std_category(row):
+# EV EDGE & DISCREPANCY DETECTION
+df["EV_Edge_Num"] = df["Sim Prob"] - df["Best Implied %"]
+df["Value Signal"] = df["EV_Edge_Num"].apply(lambda x: "🟢 YES" if x > 2.5 else ("🟡 SLIGHT" if x > 0 else "🔴 NO"))
+
+# Outlier & Market Status Logic (Includes 1st TD Long Shot detection)
+def get_market_outlier_status(row):
     try:
-        dk_val = str(row["DraftKings"])
-        if is_long_shot(dk_val):
-            return "🎯 LOTTERY TICKET (+1000+)"
-        
-        dk_clean = float(dk_val.replace("+", "").strip())
+        # Check if it's a massive 1st TD lottery ticket (+1000 or higher)
+        if is_first_td_long_shot(row["1st TD (DK)"]):
+            return "🎯 1ST TD LOTTERY (+1000+)"
+            
+        dk_clean = float(str(row["DraftKings"]).replace("+", "").strip())
         fd_clean = float(str(row["FanDuel"]).replace("+", "").strip())
-        if abs(dk_clean - fd_clean) >= 75:
-            return "⚡ 1ST TD BOOK DISCREPANCY"
-        elif row["EV_Edge_Num"] >= 4.0:
-            return "🔥 ELITE 1ST TD MODEL EDGE"
+        odds_diff = abs(dk_clean - fd_clean)
+        
+        if odds_diff >= 35:
+            return "⚡ BOOK DISCREPANCY"
+        elif row["EV_Edge_Num"] >= 6.0:
+            return "🔥 MODEL MISPRICING"
     except:
         pass
     return "Standard Board"
 
-df["1st TD Market Tag"] = df.apply(get_1std_category, axis=1)
+df["Outlier Status"] = df.apply(get_market_outlier_status, axis=1)
 
-# Formatted columns for presentation
-df["Sim 1st TD %"] = df["Base 1st TD Sim %"].apply(lambda x: f"{x:.1f}%")
+# Formatted strings for display
+df["Sim Prob %"] = df["Sim Prob"].apply(lambda x: f"{x:.1f}%")
+df["Fair Odds % Col"] = df["Fair Odds %"].apply(lambda x: f"{x:.1f}%")
 df["EV Edge %"] = df["EV_Edge_Num"].apply(lambda x: f"{'+' if x > 0 else ''}{x:.1f}%")
 
 # -------------------------------------------------------------
 # 4. STREAMLIT FRONTEND CONTROLS & DISPLAY
 # -------------------------------------------------------------
-st.sidebar.header("1st TD Strategy Filters")
+st.sidebar.header("Filter & Outlier Controls")
 
 scratched_players = st.sidebar.multiselect("🚫 Scratch/Remove Players", options=df["Player"].unique(), default=["Breece Hall"])
 pos_filter = st.sidebar.multiselect("Position", ["ALL", "RB", "WR", "TE", "QB"], default="ALL")
 
-# Focused Toggles for First TD & Lottery Hunting
-lottery_mode = st.sidebar.checkbox("🎯 Show Long Shot Lottery Tickets (+1000 or Higher Only)", value=False)
-elite_edge_mode = st.sidebar.checkbox("🔥 Show Elite Model Edges Only", value=False)
+# Outlier & Discovery Toggles
+outlier_mode = st.sidebar.checkbox("⚡ Show Market Outliers & Discrepancies Only", value=False)
+first_td_lottery_mode = st.sidebar.checkbox("🎯 Show 1st TD Lottery Tickets (+1000+ Only)", value=False)
+
 weather_alert_only = st.sidebar.checkbox("Show Weather Impact Games Only", value=False)
+value_only = st.sidebar.checkbox("Show Only Positive Value (+EV)", value=False)
 
 filtered_df = df[~df["Player"].isin(scratched_players)].copy()
 
 if "ALL" not in pos_filter and len(pos_filter) > 0:
     filtered_df = filtered_df[filtered_df["Pos"].isin(pos_filter)]
 
-if lottery_mode:
-    filtered_df = filtered_df[filtered_df["1st TD Market Tag"] == "🎯 LOTTERY TICKET (+1000+)"]
+if outlier_mode:
+    filtered_df = filtered_df[filtered_df["Outlier Status"].isin(["⚡ BOOK DISCREPANCY", "🔥 MODEL MISPRICING"])]
 
-if elite_edge_mode:
-    filtered_df = filtered_df[filtered_df["1st TD Market Tag"].isin(["🔥 ELITE 1ST TD MODEL EDGE", "⚡ 1ST TD BOOK DISCREPANCY"])]
+if first_td_lottery_mode:
+    filtered_df = filtered_df[filtered_df["Outlier Status"] == "🎯 1ST TD LOTTERY (+1000+)"]
 
 if weather_alert_only:
     filtered_df = filtered_df[filtered_df["Live Weather"].str.contains("💨|❄️", na=False)]
+
+if value_only:
+    filtered_df = filtered_df[filtered_df["Value Signal"].isin(["🟢 YES", "🟡 SLIGHT"])]
 
 top_edge_val = filtered_df["EV_Edge_Num"].max() if not filtered_df.empty else 0.0
 
 # Metrics Header
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("1st TD Slate Count", len(filtered_df))
-c2.metric("Top 1st TD Edge", f"+{top_edge_val:.1f}%" if top_edge_val > 0 else f"{top_edge_val:.1f}%")
-c3.metric("Focus Mode", "1st Team Touchdown" if not lottery_mode else "Lottery Tickets (+1000+)")
+c1.metric("Active Board Count", len(filtered_df))
+c2.metric("Top Discrepancy Edge", f"+{top_edge_val:.1f}%" if top_edge_val > 0 else f"{top_edge_val:.1f}%")
+c3.metric("Outlier Scanner", "🟢 Active")
 c4.metric("Injury Scratchpad", f"{len(scratched_players)} Scratched" if scratched_players else "🟢 Clean Board")
 
-# Main Board Display
-st.subheader("First Touchdown (1st TD) Script & Value Board")
+# Main Board
+st.subheader("Touchdown Prop Edge, Market Discrepancies & 1st TD Board")
 display_cols = [
     "Player", "Team", "Pos", "DraftKings", "FanDuel", 
-    "Sim 1st TD %", "EV Edge %", "Value Signal", "1st TD Market Tag",
+    "1st TD (DK)", "1st TD (FD)",
+    "Sim Prob %", "EV Edge %", "Value Signal", "Outlier Status",
     "Status", "Opponent", "Live Weather", "Implied Score", 
-    "Opening Script Target Rate", "1st Drive RedZone %"
+    "Inside 5 Touches", "Def RZ Rank", 
+    "1st Read %", "Route %", "Fair Odds % Col"
 ]
 st.dataframe(filtered_df[display_cols], use_container_width=True, hide_index=True)
