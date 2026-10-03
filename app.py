@@ -5,7 +5,7 @@ import requests
 st.set_page_config(page_title="NFL ATTD Master Edge Model", layout="wide")
 
 st.title("🏈 Automated NFL Anytime TD (ATTD) Edge Finder")
-st.caption("Live Sportsbook Lines, Implied Team Totals, Weather & Red-Zone Matchup Funnels")
+st.caption("Live Odds, Implied Team Totals, Weather & Red-Zone Matchup Funnels")
 
 # -------------------------------------------------------------
 # 1. API KEY & HELPER FUNCTIONS
@@ -34,7 +34,7 @@ def calc_implied_team_total(game_total, spread, is_favorite=True):
         return 0.0
 
 # -------------------------------------------------------------
-# 2. LIVE WEATHER ENGINE (Open-Meteo - Free, No Key Required)
+# 2. LIVE WEATHER ENGINE (Open-Meteo)
 # -------------------------------------------------------------
 STADIUM_COORDS = {
     "BUF": {"lat": 42.7738, "lon": -78.7870, "name": "Highmark Stadium"},
@@ -80,6 +80,18 @@ def get_stadium_weather(team):
 def load_nfl_board():
     data = [
         {
+            "Player": "Braelon Allen", "Team": "NYJ", "Pos": "RB", "Opponent": "@ CHI", "Status": "🚀 Lead RB (Breece Out)",
+            "Game Total": 42.0, "Spread": "+2.5", "Is Fav": False,
+            "L3 TDs": 2, "Inside 5 Touches": 5, "Def TDs Allowed/G": "1.4 (21st)", "Def RZ Rank": "#20 (Mid)",
+            "DraftKings": "+125", "FanDuel": "+135", "Model Prob": 52.0
+        },
+        {
+            "Player": "Breece Hall", "Team": "NYJ", "Pos": "RB", "Opponent": "@ CHI", "Status": "🔴 OUT (Quad)",
+            "Game Total": 42.0, "Spread": "+2.5", "Is Fav": False,
+            "L3 TDs": 1, "Inside 5 Touches": 0, "Def TDs Allowed/G": "1.4 (21st)", "Def RZ Rank": "#20 (Mid)",
+            "DraftKings": "N/A", "FanDuel": "N/A", "Model Prob": 0.0
+        },
+        {
             "Player": "Derrick Henry", "Team": "BAL", "Pos": "RB", "Opponent": "vs TEN", "Status": "🟢 Active",
             "Game Total": 47.5, "Spread": "-6.5", "Is Fav": True,
             "L3 TDs": 4, "Inside 5 Touches": 6, "Def TDs Allowed/G": "1.8 (31st)", "Def RZ Rank": "#30 (Poor)",
@@ -116,28 +128,16 @@ def load_nfl_board():
             "DraftKings": "+200", "FanDuel": "+210", "Model Prob": 39.5
         },
         {
-            "Player": "Antonio Gibson", "Team": "NE", "Pos": "RB", "Opponent": "@ BUF", "Status": "🟢 Active (Role Surge)",
-            "Game Total": 45.0, "Spread": "+7.0", "Is Fav": False,
-            "L3 TDs": 1, "Inside 5 Touches": 3, "Def TDs Allowed/G": "1.3 (24th)", "Def RZ Rank": "#22 (Mid)",
-            "DraftKings": "+180", "FanDuel": "+195", "Model Prob": 43.0
-        },
-        {
             "Player": "Jalen Hurts", "Team": "PHI", "Pos": "QB", "Opponent": "vs LAR", "Status": "🟢 Active",
             "Game Total": 46.5, "Spread": "-2.5", "Is Fav": True,
             "L3 TDs": 4, "Inside 5 Touches": 7, "Def TDs Allowed/G": "1.1 (25th)", "Def RZ Rank": "#28 (Weak)",
-            "DraftKings": "-105", "FanDuel": "+100", "Model Prob": 54.0
+            "DraftKings": "+165", "FanDuel": "+160", "Model Prob": 54.0
         },
         {
             "Player": "CeeDee Lamb", "Team": "DAL", "Pos": "WR", "Opponent": "@ HOU", "Status": "🟢 Active",
             "Game Total": 47.0, "Spread": "-1.5", "Is Fav": True,
             "L3 TDs": 2, "Inside 5 Touches": 2, "Def TDs Allowed/G": "1.6 (29th)", "Def RZ Rank": "#31 (Poor)",
             "DraftKings": "+105", "FanDuel": "+110", "Model Prob": 51.0
-        },
-        {
-            "Player": "Breece Hall", "Team": "NYJ", "Pos": "RB", "Opponent": "@ CHI", "Status": "🟢 Active",
-            "Game Total": 42.0, "Spread": "+2.5", "Is Fav": False,
-            "L3 TDs": 2, "Inside 5 Touches": 4, "Def TDs Allowed/G": "1.4 (21st)", "Def RZ Rank": "#20 (Mid)",
-            "DraftKings": "+115", "FanDuel": "+120", "Model Prob": 48.0
         }
     ]
     return pd.DataFrame(data)
@@ -161,14 +161,20 @@ df["Model Prob %"] = df["Model Prob"].apply(lambda x: f"{x:.1f}%")
 df["EV Edge %"] = df["EV Edge %"].apply(lambda x: f"{'+' if x > 0 else ''}{x:.1f}%")
 
 # -------------------------------------------------------------
-# 4. STREAMLIT FRONTEND
+# 4. STREAMLIT FRONTEND CONTROLS
 # -------------------------------------------------------------
-st.sidebar.header("Filter Board")
+st.sidebar.header("Filter & Controls")
+
+# Interactive Player Scratch Toggle (Remove Inactive/Out Players On The Fly)
+scratched_players = st.sidebar.multiselect("🚫 Scratch/Remove Players", options=df["Player"].unique())
+
 pos_filter = st.sidebar.multiselect("Position", ["ALL", "RB", "WR", "TE", "QB"], default="ALL")
 weather_alert_only = st.sidebar.checkbox("Show Weather Impact Games Only", value=False)
 value_only = st.sidebar.checkbox("Show Only Positive Value (+EV)", value=False)
 
-filtered_df = df.copy()
+# Apply Scratch Filter First
+filtered_df = df[~df["Player"].isin(scratched_players)].copy()
+
 if "ALL" not in pos_filter and len(pos_filter) > 0:
     filtered_df = filtered_df[filtered_df["Pos"].isin(pos_filter)]
 
@@ -178,12 +184,12 @@ if weather_alert_only:
 if value_only:
     filtered_df = filtered_df[filtered_df["Value Signal"].isin(["🟢 YES", "🟡 SLIGHT"])]
 
-# Top Dashboard Metrics
+# Metrics Header
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Players On Board", len(filtered_df))
-c2.metric("Top Available Edge", filtered_df["EV Edge %"].max() if not filtered_df.empty else "0%")
+c1.metric("Active Players", len(filtered_df))
+c2.metric("Top Edge", filtered_df["EV Edge %"].max() if not filtered_df.empty else "0%")
 c3.metric("Weather Feed", "🟢 Active")
-c4.metric("Market Data", "🟢 Active")
+c4.metric("Injury Scratchpad", f"{len(scratched_players)} Scratched" if scratched_players else "🟢 Clean Board")
 
 # Main Display Board
 st.subheader("Touchdown Prop Edge Board")
@@ -194,4 +200,4 @@ display_cols = [
 ]
 st.dataframe(filtered_df[display_cols], use_container_width=True, hide_index=True)
 
-st.info("💡 **Implied Score**: Vegas projected team points based on game totals and point spreads. Higher implied scores directly boost red-zone touchdown baselines.")
+st.info("💡 **Mobile Scratchpad**: Use the '🚫 Scratch/Remove Players' dropdown on the left sidebar to clear inactive players from your board on Sunday mornings.")
