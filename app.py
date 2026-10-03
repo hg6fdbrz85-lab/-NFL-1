@@ -5,7 +5,7 @@ import requests
 st.set_page_config(page_title="NFL ATTD Master Edge Model", layout="wide")
 
 st.title("🏈 Automated NFL Anytime TD (ATTD) Edge Finder")
-st.caption("Live Odds, Implied Team Totals, Weather, Sharp Metrics & Simulations")
+st.caption("Live Odds, Implied Team Totals, Weather, Sharp Metrics, Simulations & Long Shot Hunter")
 
 # -------------------------------------------------------------
 # 1. API KEY & HELPER FUNCTIONS
@@ -32,6 +32,16 @@ def calc_fair_odds_and_vig(dk_odds, fd_odds):
         return max(p_dk, p_fd)
     avg_implied = (p_dk + p_fd) / 2.0
     return round(avg_implied, 1)
+
+def is_long_shot(odds_val):
+    """Checks if American odds meet or exceed +200 threshold"""
+    try:
+        clean = str(odds_val).replace('+', '').strip()
+        if clean == 'N/A':
+            return False
+        return float(clean) >= 200.0
+    except:
+        return False
 
 def calc_implied_team_total(game_total, spread, is_favorite=True):
     """Calculates Implied Team Score baseline from Vegas total & spread"""
@@ -76,85 +86,85 @@ def get_stadium_weather(team):
         if wind >= 18:
             return f"💨 {wind}mph Wind ({temp}°F)"
         elif temp <= 32:
-            return f"❄️ {temp}°F Cold ({wind}mph)"
+            return f"❄️️ {temp}°F Cold ({wind}mph)"
         else:
             return f"☀️ {temp}°F / {wind}mph"
     except Exception:
         return "Outdoor (Live)"
 
 # -------------------------------------------------------------
-# 3. MASTER SLATE DATASET
+# 3. MASTER SLATE DATASET (Includes Backend QB EPA Weighting)
 # -------------------------------------------------------------
 @st.cache_data(ttl=3600)
 def load_nfl_board():
     data = [
         {
             "Player": "Derrick Henry", "Team": "BAL", "Pos": "RB", "Opponent": "vs TEN", "Status": "🟢 Active",
-            "Game Total": 47.5, "Spread": "-6.5", "Is Fav": True,
-            "1st Read %": "N/A (RB)", "Route %": "32%", "Sim Prob": 56.2,
+            "Game Total": 47.5, "Spread": "-6.5", "Is Fav": True, "QB EPA Factor": +1.5,
+            "1st Read %": "N/A (RB)", "Route %": "32%", "Base Sim": 54.7,
             "L3 TDs": 4, "Inside 5 Touches": 6, "Def TDs Allowed/G": "1.8 (31st)", "Def RZ Rank": "#30 (Poor)",
             "DraftKings": "+110", "FanDuel": "+115"
         },
         {
             "Player": "Braelon Allen", "Team": "NYJ", "Pos": "RB", "Opponent": "@ CHI", "Status": "🚀 Lead RB (Breece Out)",
-            "Game Total": 42.0, "Spread": "+2.5", "Is Fav": False,
-            "1st Read %": "N/A (RB)", "Route %": "38%", "Sim Prob": 52.0,
+            "Game Total": 42.0, "Spread": "+2.5", "Is Fav": False, "QB EPA Factor": -0.8,
+            "1st Read %": "N/A (RB)", "Route %": "38%", "Base Sim": 52.8,
             "L3 TDs": 2, "Inside 5 Touches": 5, "Def TDs Allowed/G": "1.4 (21st)", "Def RZ Rank": "#20 (Mid)",
             "DraftKings": "+125", "FanDuel": "+135"
         },
         {
             "Player": "Ja'Marr Chase", "Team": "CIN", "Pos": "WR", "Opponent": "vs JAX", "Status": "🟢 Active",
-            "Game Total": 48.0, "Spread": "-3.0", "Is Fav": True,
-            "1st Read %": "34.5%", "Route %": "92%", "Sim Prob": 61.0,
+            "Game Total": 48.0, "Spread": "-3.0", "Is Fav": True, "QB EPA Factor": +2.0,
+            "1st Read %": "34.5%", "Route %": "92%", "Base Sim": 59.0,
             "L3 TDs": 3, "Inside 5 Touches": 2, "Def TDs Allowed/G": "2.1 (32nd)", "Def RZ Rank": "#32 (Worst)",
             "DraftKings": "-115", "FanDuel": "-110"
         },
         {
             "Player": "Jalen Hurts", "Team": "PHI", "Pos": "QB", "Opponent": "vs LAR", "Status": "🟢 Active",
-            "Game Total": 46.5, "Spread": "-2.5", "Is Fav": True,
-            "1st Read %": "N/A (QB)", "Route %": "N/A", "Sim Prob": 45.0,
+            "Game Total": 46.5, "Spread": "-2.5", "Is Fav": True, "QB EPA Factor": +1.8,
+            "1st Read %": "N/A (QB)", "Route %": "N/A", "Base Sim": 43.2,
             "L3 TDs": 4, "Inside 5 Touches": 7, "Def TDs Allowed/G": "1.1 (25th)", "Def RZ Rank": "#28 (Weak)",
             "DraftKings": "+165", "FanDuel": "+160"
         },
         {
             "Player": "Jahmyr Gibbs", "Team": "DET", "Pos": "RB", "Opponent": "@ CAR", "Status": "🟢 Active",
-            "Game Total": 49.5, "Spread": "-3.5", "Is Fav": True,
-            "1st Read %": "18.2%", "Route %": "64%", "Sim Prob": 50.0,
+            "Game Total": 49.5, "Spread": "-3.5", "Is Fav": True, "QB EPA Factor": +2.2,
+            "1st Read %": "18.2%", "Route %": "64%", "Base Sim": 47.8,
             "L3 TDs": 3, "Inside 5 Touches": 4, "Def TDs Allowed/G": "1.5 (28th)", "Def RZ Rank": "#27 (Weak)",
             "DraftKings": "+125", "FanDuel": "+130"
         },
         {
             "Player": "Josh Allen", "Team": "BUF", "Pos": "QB", "Opponent": "vs NE", "Status": "🟢 Active",
-            "Game Total": 45.0, "Spread": "-7.0", "Is Fav": True,
-            "1st Read %": "N/A (QB)", "Route %": "N/A", "Sim Prob": 45.0,
+            "Game Total": 45.0, "Spread": "-7.0", "Is Fav": True, "QB EPA Factor": +2.5,
+            "1st Read %": "N/A (QB)", "Route %": "N/A", "Base Sim": 42.5,
             "L3 TDs": 3, "Inside 5 Touches": 5, "Def TDs Allowed/G": "0.8 (18th)", "Def RZ Rank": "#15 (Mid)",
             "DraftKings": "+140", "FanDuel": "+150"
         },
         {
             "Player": "Puka Nacua", "Team": "LAR", "Pos": "WR", "Opponent": "@ PHI", "Status": "🟡 Questionable",
-            "Game Total": 46.5, "Spread": "+2.5", "Is Fav": False,
-            "1st Read %": "31.0%", "Route %": "88%", "Sim Prob": 46.0,
+            "Game Total": 46.5, "Spread": "+2.5", "Is Fav": False, "QB EPA Factor": +0.5,
+            "1st Read %": "31.0%", "Route %": "88%", "Base Sim": 45.5,
             "L3 TDs": 2, "Inside 5 Touches": 3, "Def TDs Allowed/G": "1.4 (22nd)", "Def RZ Rank": "#18 (Mid)",
             "DraftKings": "+135", "FanDuel": "+140"
         },
         {
             "Player": "Brock Bowers", "Team": "LV", "Pos": "TE", "Opponent": "vs KC", "Status": "🟢 Active",
-            "Game Total": 43.5, "Spread": "+3.5", "Is Fav": False,
-            "1st Read %": "27.5%", "Route %": "81%", "Sim Prob": 39.5,
+            "Game Total": 43.5, "Spread": "+3.5", "Is Fav": False, "QB EPA Factor": -1.0,
+            "1st Read %": "27.5%", "Route %": "81%", "Base Sim": 40.5,
             "L3 TDs": 2, "Inside 5 Touches": 3, "Def TDs Allowed/G": "1.1 (29th)", "Def RZ Rank": "#25 (Weak)",
             "DraftKings": "+200", "FanDuel": "+210"
         },
         {
             "Player": "CeeDee Lamb", "Team": "DAL", "Pos": "WR", "Opponent": "@ HOU", "Status": "🟢 Active",
-            "Game Total": 47.0, "Spread": "-1.5", "Is Fav": True,
-            "1st Read %": "36.2%", "Route %": "94%", "Sim Prob": 53.0,
+            "Game Total": 47.0, "Spread": "-1.5", "Is Fav": True, "QB EPA Factor": +1.2,
+            "1st Read %": "36.2%", "Route %": "94%", "Base Sim": 51.8,
             "L3 TDs": 2, "Inside 5 Touches": 2, "Def TDs Allowed/G": "1.6 (29th)", "Def RZ Rank": "#31 (Poor)",
             "DraftKings": "+105", "FanDuel": "+110"
         },
         {
             "Player": "Breece Hall", "Team": "NYJ", "Pos": "RB", "Opponent": "@ CHI", "Status": "🔴 OUT (Quad)",
-            "Game Total": 42.0, "Spread": "+2.5", "Is Fav": False,
-            "1st Read %": "N/A", "Route %": "0%", "Sim Prob": 0.0,
+            "Game Total": 42.0, "Spread": "+2.5", "Is Fav": False, "QB EPA Factor": -0.8,
+            "1st Read %": "N/A", "Route %": "0%", "Base Sim": 0.0,
             "L3 TDs": 1, "Inside 5 Touches": 0, "Def TDs Allowed/G": "1.4 (21st)", "Def RZ Rank": "#20 (Mid)",
             "DraftKings": "N/A", "FanDuel": "N/A"
         }
@@ -166,7 +176,8 @@ df = load_nfl_board()
 # Live Weather Integration
 df["Live Weather"] = df["Team"].apply(get_stadium_weather)
 
-# Calculations
+# Calculations (Applying backend QB EPA adjustment directly into Sim Prob)
+df["Sim Prob"] = df["Base Sim"] + df["QB EPA Factor"]
 df["Implied Score"] = df.apply(lambda r: calc_implied_team_total(r["Game Total"], r["Spread"], r["Is Fav"]), axis=1)
 df["DK Implied %"] = df["DraftKings"].apply(odds_to_implied)
 df["FD Implied %"] = df["FanDuel"].apply(odds_to_implied)
@@ -190,6 +201,10 @@ st.sidebar.header("Filter & Controls")
 
 scratched_players = st.sidebar.multiselect("🚫 Scratch/Remove Players", options=df["Player"].unique(), default=["Breece Hall"])
 pos_filter = st.sidebar.multiselect("Position", ["ALL", "RB", "WR", "TE", "QB"], default="ALL")
+
+# Long Shot Toggle
+long_shot_mode = st.sidebar.checkbox("🎯 Long Shot Hunter (+200 & Up Only)", value=False)
+
 weather_alert_only = st.sidebar.checkbox("Show Weather Impact Games Only", value=False)
 value_only = st.sidebar.checkbox("Show Only Positive Value (+EV)", value=False)
 
@@ -197,6 +212,12 @@ filtered_df = df[~df["Player"].isin(scratched_players)].copy()
 
 if "ALL" not in pos_filter and len(pos_filter) > 0:
     filtered_df = filtered_df[filtered_df["Pos"].isin(pos_filter)]
+
+if long_shot_mode:
+    filtered_df = filtered_df[
+        filtered_df["DraftKings"].apply(is_long_shot) | 
+        filtered_df["FanDuel"].apply(is_long_shot)
+    ]
 
 if weather_alert_only:
     filtered_df = filtered_df[filtered_df["Live Weather"].str.contains("💨|❄️", na=False)]
@@ -213,7 +234,7 @@ c2.metric("Top Edge", f"+{top_edge_val:.1f}%" if top_edge_val > 0 else f"{top_ed
 c3.metric("Weather Feed", "🟢 Active")
 c4.metric("Injury Scratchpad", f"{len(scratched_players)} Scratched" if scratched_players else "🟢 Clean Board")
 
-# Main Board (Core Betting Data Front & Center; Advanced Metrics Toward the Right)
+# Main Board
 st.subheader("Touchdown Prop Edge Board")
 display_cols = [
     "Player", "Team", "Pos", "DraftKings", "FanDuel", 
