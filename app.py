@@ -19,31 +19,31 @@ def odds_to_implied(odds_val):
 def get_todays_td_slate():
     today_str = datetime.now().strftime("%Y-%m-%d")
     
-    # Original baseline data structure with full metrics and implied team totals
+    # Full baseline data structure with exact sportsbook odds
     data = [
         {
             "Player": "Bijan Robinson", "Team": "ATL", "Pos": "RB", "Opponent": "@ NO", "Status": "🟢 Active",
-            "Game Total": 43.5, "Spread": "+2.5", "Implied Team Total": 20.5, "Is Fav": False, "EPA Factor": +1.5,
-            "Base Sim Prob": 61.0, "Inside 5 Touches": 5, "Def RZ Rank": "#15 (Mid)",
-            "DraftKings ATTD": "-130", "FanDuel ATTD": "-125", "1st TD (DK)": "+550", "1st TD (FD)": "+525"
-        },
-        {
-            "Player": "Alvin Kamara", "Team": "NO", "Pos": "RB", "Opponent": "vs ATL", "Status": "🟢 Active",
-            "Game Total": 43.5, "Spread": "-2.5", "Implied Team Total": 23.0, "Is Fav": True, "EPA Factor": +1.8,
-            "Base Sim Prob": 58.5, "Inside 5 Touches": 6, "Def RZ Rank": "#20 (Mid)",
-            "DraftKings ATTD": "-115", "FanDuel ATTD": "-120", "1st TD (DK)": "+600", "1st TD (FD)": "+575"
-        },
-        {
-            "Player": "Chris Olave", "Team": "NO", "Pos": "WR", "Opponent": "vs ATL", "Status": "🟢 Active",
-            "Game Total": 43.5, "Spread": "-2.5", "Implied Team Total": 23.0, "Is Fav": True, "EPA Factor": +1.2,
-            "Base Sim Prob": 42.0, "Inside 5 Touches": 2, "Def RZ Rank": "#22 (Weak)",
-            "DraftKings ATTD": "+150", "FanDuel ATTD": "+140", "1st TD (DK)": "+900", "1st TD (FD)": "+850"
+            "Game Total": 47.5, "Spread": "+2.5", "Implied Team Total": 22.5, "Is Fav": False, "EPA Factor": +1.5,
+            "Base Sim Prob": 68.0, "Inside 5 Touches": 6, "Def RZ Rank": "#20 (Mid)",
+            "DraftKings ATTD": "-210", "FanDuel ATTD": "-205", "1st TD (DK)": "+245", "1st TD (FD)": "+225"
         },
         {
             "Player": "Drake London", "Team": "ATL", "Pos": "WR", "Opponent": "@ NO", "Status": "🟢 Active",
-            "Game Total": 43.5, "Spread": "+2.5", "Implied Team Total": 20.5, "Is Fav": False, "EPA Factor": +1.0,
-            "Base Sim Prob": 39.0, "Inside 5 Touches": 3, "Def RZ Rank": "#18 (Mid)",
-            "DraftKings ATTD": "+165", "FanDuel ATTD": "+160", "1st TD (DK)": "+1000", "1st TD (FD)": "+950"
+            "Game Total": 47.5, "Spread": "+2.5", "Implied Team Total": 22.5, "Is Fav": False, "EPA Factor": +1.0,
+            "Base Sim Prob": 45.0, "Inside 5 Touches": 3, "Def RZ Rank": "#18 (Mid)",
+            "DraftKings ATTD": "+115", "FanDuel ATTD": "+110", "1st TD (DK)": "+800", "1st TD (FD)": "+750"
+        },
+        {
+            "Player": "Chris Olave", "Team": "NO", "Pos": "WR", "Opponent": "vs ATL", "Status": "🟢 Active",
+            "Game Total": 47.5, "Spread": "-2.5", "Implied Team Total": 25.0, "Is Fav": True, "EPA Factor": +1.2,
+            "Base Sim Prob": 44.0, "Inside 5 Touches": 2, "Def RZ Rank": "#22 (Weak)",
+            "DraftKings ATTD": "+125", "FanDuel ATTD": "+120", "1st TD (DK)": "+900", "1st TD (FD)": "+850"
+        },
+        {
+            "Player": "Alvin Kamara", "Team": "NO", "Pos": "RB", "Opponent": "vs ATL", "Status": "🟢 Active",
+            "Game Total": 47.5, "Spread": "-2.5", "Implied Team Total": 25.0, "Is Fav": True, "EPA Factor": +1.8,
+            "Base Sim Prob": 42.0, "Inside 5 Touches": 5, "Def RZ Rank": "#15 (Mid)",
+            "DraftKings ATTD": "+140", "FanDuel ATTD": "+135", "1st TD (DK)": "+950", "1st TD (FD)": "+900"
         }
     ]
     return pd.DataFrame(data), today_str
