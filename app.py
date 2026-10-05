@@ -4,7 +4,7 @@ from datetime import datetime
 
 st.set_page_config(page_title="NFL Touchdown Edge Hunter", layout="wide")
 st.title("🏈 NFL Touchdown Prop & 1st TD Hunter")
-st.caption("Standalone Board: Automated Schedule-Aware Anytime TD, Multi-TD & 1st TD Projections (MNF)")
+st.caption("Standalone Board: Automated Schedule-Aware Anytime TD, Multi-TD & Full Statistical Projections (MNF)")
 
 def odds_to_implied(odds_val):
     try:
@@ -19,7 +19,7 @@ def odds_to_implied(odds_val):
 def get_todays_td_slate():
     today_str = datetime.now().strftime("%Y-%m-%d")
     
-    # Exact odds mapped straight from your DraftKings screenshot
+    # Full dataset with every single original metric and your correct MNF odds
     data = [
         {
             "Player": "Bijan Robinson", "Team": "ATL", "Pos": "RB", "Opponent": "@ NO", "Status": "🟢 Active",
@@ -51,15 +51,7 @@ def get_todays_td_slate():
 if "td_slate" not in st.session_state:
     st.session_state.td_slate, st.session_state.td_date = get_todays_td_slate()
 
-df = st.session_state.td_slate.copy()
-df["Sim Prob"] = df["Base Sim Prob"] + df["EPA Factor"]
-df["DK Implied %"] = df["Anytime TD (DK)"].apply(odds_to_implied)
-df["EV_Edge_Num"] = df["Sim Prob"] - df["DK Implied %"]
-df["Value Signal"] = df["EV_Edge_Num"].apply(lambda x: "🟢 YES" if x > 2.5 else ("🟡 SLIGHT" if x > 0 else "🔴 NO"))
-
-df["Sim Prob %"] = df["Sim Prob"].apply(lambda x: f"{x:.1f}%")
-df["EV Edge %"] = df_ni if 'df_ni' in locals() else df["EV_Edge_Num"].apply(lambda x: f"{'+' if x > 0 else ''}{x:.1f}%")
-
+# Sidebar Schedule & Full Data Editor
 st.sidebar.header("TD Schedule & Manager")
 st.sidebar.info(f"📅 Active Date: {st.session_state.td_date}")
 
@@ -67,5 +59,24 @@ with st.sidebar.expander("🛠 Edit Touchdown Slate"):
     st.session_state.td_slate = st.data_editor(st.session_state.td_slate, num_rows="dynamic", use_container_width=True)
     if st.button("Save TD Board"): st.rerun()
 
-st.subheader("Monday Night Football — Touchdown Market (DraftKings)")
-st.dataframe(df[["Player", "Team", "Pos", "Opponent", "Anytime TD (DK)", "2+ TDs (DK)", "1st TD (DK)", "Sim Prob %", "EV Edge %", "Value Signal"]], use_container_width=True, hide_index=True)
+# Full Mathematical Pipeline
+df = st.session_state.td_slate.copy()
+df["Sim Prob"] = df["Base Sim Prob"] + df["EPA Factor"]
+df["DK Implied %"] = df["Anytime TD (DK)"].apply(odds_to_implied)
+df["EV_Edge_Num"] = df["Sim Prob"] - df["DK Implied %"]
+df["Value Signal"] = df["EV_Edge_Num"].apply(lambda x: "🟢 YES" if x > 2.5 else ("🟡 SLIGHT" if x > 0 else "🔴 NO"))
+
+df["Sim Prob %"] = df["Sim Prob"].apply(lambda x: f"{x:.1f}%")
+df["EV Edge %"] = df["EV_Edge_Num"].apply(lambda x: f"{'+' if x > 0 else ''}{x:.1f}%")
+
+st.subheader("Monday Night Football — Full Touchdown & Analytics Board")
+st.dataframe(
+    df[[
+        "Player", "Team", "Pos", "Opponent", "Game Total", "Spread", 
+        "Anytime TD (DK)", "2+ TDs (DK)", "1st TD (DK)", 
+        "Sim Prob %", "EV Edge %", "Value Signal", 
+        "Inside 5 Touches", "Def RZ Rank", "EPA Factor"
+    ]], 
+    use_container_width=True, 
+    hide_index=True
+)
